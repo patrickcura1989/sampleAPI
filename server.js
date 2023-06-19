@@ -14,6 +14,7 @@ app.get('/retrieve', async function (req, res) {
     // const response = await crudToMongoDB("retrieve");
 
     const response = await postToDataAPI("/find");
+    res.writeHead(200, {'Access-Control-Allow-Origin': '*'});
     res.end(JSON.stringify(response));
 })
 
@@ -30,6 +31,7 @@ app.get('/insert', async function (req, res) {
     // const response = await crudToMongoDB("insert", dates);
 
     const response = await insert(dates);
+    res.writeHead(200, {'Access-Control-Allow-Origin': '*'});
     res.end(JSON.stringify(response));
 })
 
@@ -40,8 +42,8 @@ let server = app.listen(8081, function () {
 // Use Data API
 const baseUrl = "https://ap-southeast-2.aws.data.mongodb-api.com/app/data-dyvzi/endpoint/data/v1/action";
 const apiKey = 'ruYbhktY7SXlVLDnu3zKWKb3DZnA7EaZposl1zSH8yVSYUalUV9TJsa0TKduUNhk'
-const database = "sample";
-const collection = 'test';
+const database = "amp";
+const collection = 'rates';
 const dataSource = "Cluster0";
 async function postToDataAPI(action, document) {
     const url = baseUrl + action;
