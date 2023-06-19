@@ -1,6 +1,7 @@
 let express = require('express');
 let app = express();
 let fs = require("fs");
+let fetch = require('node-fetch');
 
 app.get('/retrieve', async function (req, res) {
     // Sample code for reading file
@@ -9,16 +10,26 @@ app.get('/retrieve', async function (req, res) {
     //     const payloads = fileData.docs.map(row => row.payload);
     //     res.end(JSON.stringify(payloads));
     // });
-    const response = await crudToMongoDB("retrieve");
+    // Code for retrieving from db directly
+    // const response = await crudToMongoDB("retrieve");
+
+    const response = await postToDataAPI("/find");
     res.end(JSON.stringify(response));
 })
 
 app.get('/insert', async function (req, res) {
-    // get all dates in DB 
-    const allRows = await crudToMongoDB("retrieve");
+    // Code for retrieving from db directly
+    // const allRows = await crudToMongoDB("retrieve");
+
+    // get all dates
+    const allRows = await postToDataAPI("/find");
     const dates = allRows.map(row => row.date)
+
     // console.log(dates);
-    const response = await crudToMongoDB("insert", dates);
+    // Code for inserting into db directly
+    // const response = await crudToMongoDB("insert", dates);
+
+    const response = await insert(dates);
     res.end(JSON.stringify(response));
 })
 
@@ -26,61 +37,35 @@ let server = app.listen(8081, function () {
     console.log("Example app running")
 })
 
-
-const { MongoClient, ServerApiVersion } = require('mongodb');
-const uri = "mongodb+srv://patrickcura1989:e0k8HP5vdCrmJ5mV@cluster0.f0tw0nk.mongodb.net/?retryWrites=true&w=majority";
-
-// Create a MongoClient with a MongoClientOptions object to set the Stable API version
-const client = new MongoClient(uri, {
-    serverApi: {
-        version: ServerApiVersion.v1,
-        strict: true,
-        deprecationErrors: true,
-    }
-});
-
-async function crudToMongoDB(operation, dates) {
-    let response = "";
-    try {
-        // Connect the client to the server	(optional starting in v4.7)
-        await client.connect();
-        let dbo = await client.db("amp"); // database
-        let myColl = await dbo.collection("rates"); // collection
-        console.log("Successfully connected to MongoDB!");
-
-        if (operation === "retrieve") {
-            response = await retrieve(myColl)
-        }
-        if (operation === "insert") {
-            response = await insert(myColl, dates)
-        }
-
-    } finally {
-        // Ensures that the client will close when you finish/error
-        await client.close();
-    }
-    return response;
+// Use Data API
+const baseUrl = "https://ap-southeast-2.aws.data.mongodb-api.com/app/data-dyvzi/endpoint/data/v1/action";
+const apiKey = 'ruYbhktY7SXlVLDnu3zKWKb3DZnA7EaZposl1zSH8yVSYUalUV9TJsa0TKduUNhk'
+const database = "sample";
+const collection = 'test';
+const dataSource = "Cluster0";
+async function postToDataAPI(action, document) {
+    const url = baseUrl + action;
+    const data = {
+        "database":database,
+        "collection":collection,
+        "dataSource":dataSource,
+        "document": document
+    };
+    const response = await fetch(url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            'Access-Control-Request-Headers': '*',
+            'api-key': apiKey,
+        },
+        body: JSON.stringify(data),
+    });
+    const responseJson = await response.json();
+    return responseJson.documents;
 }
 
-async function retrieve(myColl) {
-    let response = [];
-    const findResult = await myColl.find();
-    for await (const doc of findResult) {
-        response.push(doc);
-    }
-    console.log("Successfully retrieved");
-    return response;
-}
 
-// Sample code for inserting data into db
-// async function insert(myColl) {
-//     const doc = { "date": "2021-07-05T00:00:00Z", "funds": [{ "fund": "nikko", "percent": 0.26, "price": "1.60074" }, { "fund": "amp", "percent": 0.25, "price": "4.5079" }, { "fund": "asb", "percent": 0.25, "price": "1.56493" }, { "fund": "anz", "percent": 0.24, "price": "1.63875" }] };
-//     const result = await myColl.insertOne(doc);
-//     return result;
-// }
-
-let fetch = require('node-fetch');
-async function insert(myColl, dates) {
+async function insert(dates) {
 
     let result = "ERROR";
 
@@ -131,10 +116,70 @@ async function insert(myColl, dates) {
                 output.payload = payload;
                 doc = JSON.parse(JSON.stringify(output));
                 // console.log('sadfsdafsadfsdfsadfsadfsdf', JSON.stringify(payload));
-                const result = await myColl.insertOne(payload);
+                // Code for inserting into db directly
+                // const result = await myColl.insertOne(payload);
+
+                const result = await postToDataAPI("/insertOne", payload);
                 return result;
             })
     }
     console.log("Successfully inserted: " + result);
     return result;
 }
+
+
+/****************** // CODE FOR CONNECTING TO DB DIRECTLY
+
+// const { MongoClient, ServerApiVersion } = require('mongodb');
+// const uri = "mongodb+srv://patrickcura1989:PASSWORD@cluster0.f0tw0nk.mongodb.net/?retryWrites=true&w=majority";
+
+// Create a MongoClient with a MongoClientOptions object to set the Stable API version
+const client = new MongoClient(uri, {
+    serverApi: {
+        version: ServerApiVersion.v1,
+        strict: true,
+        deprecationErrors: true,
+    }
+});
+
+async function crudToMongoDB(operation, dates) {
+    let response = "";
+    try {
+        // Connect the client to the server	(optional starting in v4.7)
+        await client.connect();
+        let dbo = await client.db("amp"); // database
+        let myColl = await dbo.collection("rates"); // collection
+        console.log("Successfully connected to MongoDB!");
+
+        if (operation === "retrieve") {
+            response = await retrieve(myColl)
+        }
+        if (operation === "insert") {
+            response = await insert(myColl, dates)
+        }
+
+    } finally {
+        // Ensures that the client will close when you finish/error
+        await client.close();
+    }
+    return response;
+}
+
+async function retrieve(myColl) {
+    let response = [];
+    const findResult = await myColl.find();
+    for await (const doc of findResult) {
+        response.push(doc);
+    }
+    console.log("Successfully retrieved");
+    return response;
+}
+
+// Sample code for inserting data into db
+// async function insert(myColl) {
+//     const doc = { "date": "2021-07-05T00:00:00Z", "funds": [{ "fund": "nikko", "percent": 0.26, "price": "1.60074" }, { "fund": "amp", "percent": 0.25, "price": "4.5079" }, { "fund": "asb", "percent": 0.25, "price": "1.56493" }, { "fund": "anz", "percent": 0.24, "price": "1.63875" }] };
+//     const result = await myColl.insertOne(doc);
+//     return result;
+// }
+
+**/
