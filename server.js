@@ -1,16 +1,140 @@
-var express = require('express');
-var app = express();
-var fs = require("fs");
+let express = require('express');
+let app = express();
+let fs = require("fs");
 
-app.get('/listUsers', function (req, res) {
-   fs.readFile( "users.json", 'utf8', function (err, data) {
-      console.log( data );
-      res.end( data );
-   });
+app.get('/retrieve', async function (req, res) {
+    // Sample code for reading file
+    // fs.readFile("users.json", 'utf8', function (err, data) {
+    //     const fileData = JSON.parse(data);
+    //     const payloads = fileData.docs.map(row => row.payload);
+    //     res.end(JSON.stringify(payloads));
+    // });
+    const response = await crudToMongoDB("retrieve");
+    res.end(JSON.stringify(response));
 })
 
-var server = app.listen(8081, function () {
-   var host = server.address().address
-   var port = server.address().port
-   console.log("Example app listening at http://%s:%s", host, port)
+app.get('/insert', async function (req, res) {
+    // get all dates in DB 
+    const allRows = await crudToMongoDB("retrieve");
+    const dates = allRows.map(row => row.date)
+    // console.log(dates);
+    const response = await crudToMongoDB("insert", dates);
+    res.end(JSON.stringify(response));
 })
+
+let server = app.listen(8081, function () {
+    console.log("Example app running")
+})
+
+
+const { MongoClient, ServerApiVersion } = require('mongodb');
+const uri = "mongodb+srv://patrickcura1989:e0k8HP5vdCrmJ5mV@cluster0.f0tw0nk.mongodb.net/?retryWrites=true&w=majority";
+
+// Create a MongoClient with a MongoClientOptions object to set the Stable API version
+const client = new MongoClient(uri, {
+    serverApi: {
+        version: ServerApiVersion.v1,
+        strict: true,
+        deprecationErrors: true,
+    }
+});
+
+async function crudToMongoDB(operation, dates) {
+    let response = "";
+    try {
+        // Connect the client to the server	(optional starting in v4.7)
+        await client.connect();
+        let dbo = await client.db("amp"); // database
+        let myColl = await dbo.collection("rates"); // collection
+        console.log("Successfully connected to MongoDB!");
+
+        if (operation === "retrieve") {
+            response = await retrieve(myColl)
+        }
+        if (operation === "insert") {
+            response = await insert(myColl, dates)
+        }
+
+    } finally {
+        // Ensures that the client will close when you finish/error
+        await client.close();
+    }
+    return response;
+}
+
+async function retrieve(myColl) {
+    let response = [];
+    const findResult = await myColl.find();
+    for await (const doc of findResult) {
+        response.push(doc);
+    }
+    console.log("Successfully retrieved");
+    return response;
+}
+
+// Sample code for inserting data into db
+// async function insert(myColl) {
+//     const doc = { "date": "2021-07-05T00:00:00Z", "funds": [{ "fund": "nikko", "percent": 0.26, "price": "1.60074" }, { "fund": "amp", "percent": 0.25, "price": "4.5079" }, { "fund": "asb", "percent": 0.25, "price": "1.56493" }, { "fund": "anz", "percent": 0.24, "price": "1.63875" }] };
+//     const result = await myColl.insertOne(doc);
+//     return result;
+// }
+
+let fetch = require('node-fetch');
+async function insert(myColl, dates) {
+
+    let result = "ERROR";
+
+    const response = await fetch('https://www.amp.co.nz/amp/returns-unit-prices/amp-new-zealand-retirement');
+    const text = await response.text();
+    // console.log(text);
+    //let date = text.match(/(?<=\<p>Unit prices effective as at ).*(?=\<\/p>)/)[0].split("/").join('-')+'T00:00:00Z';
+    //let date = text.match(/(?<=\<p>Unit prices effective as at ).*(?=\<\/p>)/)[0];
+    let dateNZ = text.match(/(?<=\<p>Unit prices effective as at ).*(?=\<\/p>)/)[0].split("/");
+    let date = dateNZ[2] + "-" + dateNZ[1] + "-" + dateNZ[0] + 'T00:00:00Z';
+    //console.log('asdfasfdsadf  fsdfdfdf   saddsf', date);
+    // console.log('asdfsadffffffffff', dates.includes(date));        
+    if (!dates.includes(date)) {
+        let scraper = require('table-scraper');
+        // console.log('scrapper');
+        result = await scraper
+            .get('https://www.amp.co.nz/amp/returns-unit-prices/amp-new-zealand-retirement')
+            .then(async function (tableData) {
+                //console.log(tableData[0][0]);
+                //const result = tableData[0].find( ({ FUND }) => FUND === 'AMP Aggressive Fund' );
+                //console.log(result[ 'UNIT PRICE ($)' ]) // { name: 'cherries', quantity: 5 }
+                let output = {};
+                let payload = {};
+                let funds = [];
+                let nikko = {};
+                let amp = {};
+                let asb = {};
+                let anz = {};
+                nikko.fund = "nikko";
+                amp.fund = "amp";
+                asb.fund = "asb";
+                anz.fund = "anz";
+                nikko.percent = 0.26;
+                amp.percent = 0.25;
+                asb.percent = 0.25;
+                anz.percent = 0.24;
+                nikko.price = tableData[0].find(({ FUND }) => FUND === 'Nikko AM Growth Fund')['UNIT PRICE ($)'];
+                amp.price = tableData[0].find(({ FUND }) => FUND === 'AMP Aggressive Fund')['UNIT PRICE ($)'];
+                asb.price = tableData[0].find(({ FUND }) => FUND === 'ASB Growth Fund')['UNIT PRICE ($)'];
+                anz.price = tableData[0].find(({ FUND }) => FUND === 'ANZ Growth Fund')['UNIT PRICE ($)'];
+                //console.log(anz.price) // { name: 'cherries', quantity: 5 }
+                funds.push(nikko);
+                funds.push(amp);
+                funds.push(asb);
+                funds.push(anz);
+                payload.date = date;
+                payload.funds = funds;
+                output.payload = payload;
+                doc = JSON.parse(JSON.stringify(output));
+                // console.log('sadfsdafsadfsdfsadfsadfsdf', JSON.stringify(payload));
+                const result = await myColl.insertOne(payload);
+                return result;
+            })
+    }
+    console.log("Successfully inserted: " + result);
+    return result;
+}
