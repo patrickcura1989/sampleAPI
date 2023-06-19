@@ -24,7 +24,7 @@ app.get('/retrieve', async function (req, res) {
     // const response = await crudToMongoDB("retrieve");
 
     const response = await postToDataAPI("/find");
-    res.writeHead(200, {'Access-Control-Allow-Origin': '*'});
+    // res.writeHead(200, {'Access-Control-Allow-Origin': '*'});
     res.end(JSON.stringify(response));
 })
 
@@ -41,7 +41,7 @@ app.get('/insert', async function (req, res) {
     // const response = await crudToMongoDB("insert", dates);
 
     const response = await insert(dates);
-    res.writeHead(200, {'Access-Control-Allow-Origin': '*'});
+    // res.writeHead(200, {'Access-Control-Allow-Origin': '*'});
     res.end(JSON.stringify(response));
 })
 
