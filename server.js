@@ -3,6 +3,16 @@ let app = express();
 let fs = require("fs");
 let fetch = require('node-fetch');
 
+// Add Access Control Allow Origin headers
+app.use((req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.header(
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept"
+    );
+    next();
+  });
+
 app.get('/retrieve', async function (req, res) {
     // Sample code for reading file
     // fs.readFile("users.json", 'utf8', function (err, data) {
