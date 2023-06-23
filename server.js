@@ -9,7 +9,7 @@ app.use((req, res, next) => {
     res.header("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS,POST,PUT");
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
     next();
-  });
+});
 
 app.get('/retrieve', async function (req, res) {
     // Sample code for reading file
@@ -38,9 +38,17 @@ app.get('/insert', async function (req, res) {
     // Code for inserting into db directly
     // const response = await crudToMongoDB("insert", dates);
 
-    const response = await insert(dates);
-    // res.writeHead(200, {'Access-Control-Allow-Origin': '*'});
-    res.end(JSON.stringify(response));
+    // try {
+        const response = await insert(dates);
+        // res.writeHead(200, {'Access-Control-Allow-Origin': '*'});
+        res.end(JSON.stringify(response));
+    // } catch (e) {
+    //     if (!(e instanceof Error)) {
+    //         e = new Error(e);
+    //     }
+    //     console.error(e.message);
+    //     res.end(e.message);
+    // }
 })
 
 let server = app.listen(8081, function () {
@@ -56,9 +64,9 @@ const dataSource = "Cluster0";
 async function postToDataAPI(action, document) {
     const url = baseUrl + action;
     const data = {
-        "database":database,
-        "collection":collection,
-        "dataSource":dataSource,
+        "database": database,
+        "collection": collection,
+        "dataSource": dataSource,
         "document": document
     };
     const response = await fetch(url, {
@@ -79,24 +87,30 @@ async function insert(dates) {
 
     let result = "ERROR";
 
-    const response = await fetch('https://www.amp.co.nz/amp/returns-unit-prices/amp-new-zealand-retirement');
+    // const baseUrl = 'https://www.amp.co.nz/amp/returns-unit-prices/amp-new-zealand-retirement';
+    const baseUrl = 'https://www.amp.co.nz/returns-and-unit-prices/nzrt.html';
+
+    const response = await fetch(baseUrl); //
     const text = await response.text();
     // console.log(text);
     //let date = text.match(/(?<=\<p>Unit prices effective as at ).*(?=\<\/p>)/)[0].split("/").join('-')+'T00:00:00Z';
     //let date = text.match(/(?<=\<p>Unit prices effective as at ).*(?=\<\/p>)/)[0];
-    let dateNZ = text.match(/(?<=\<p>Unit prices effective as at ).*(?=\<\/p>)/)[0].split("/");
+    // let dateNZ = text.match(/(?<=\<p>Unit prices effective as at ).*(?=\<\/p>)/)[0].split("/");
+    let pattern = /(?<=Effective date: ).*(?=\<\/h5>)/g;
+    let dateNZ = text.match(pattern)[1].split("/");
     let date = dateNZ[2] + "-" + dateNZ[1] + "-" + dateNZ[0] + 'T00:00:00Z';
-    //console.log('asdfasfdsadf  fsdfdfdf   saddsf', date);
+    // console.log('asdfasfdsadf  fsdfdfdf   saddsf', date);
     // console.log('asdfsadffffffffff', dates.includes(date));        
     if (!dates.includes(date)) {
         let scraper = require('table-scraper');
         // console.log('scrapper');
         result = await scraper
-            .get('https://www.amp.co.nz/amp/returns-unit-prices/amp-new-zealand-retirement')
+            .get(baseUrl)
             .then(async function (tableData) {
-                //console.log(tableData[0][0]);
-                //const result = tableData[0].find( ({ FUND }) => FUND === 'AMP Aggressive Fund' );
-                //console.log(result[ 'UNIT PRICE ($)' ]) // { name: 'cherries', quantity: 5 }
+                // console.log(tableData[1][0]);
+                // const test = tableData[1].find( FUND  => FUND['Fund name'] === 'AMP Aggressive Fund' );
+                // console.log(test);
+                //console.log(test[ 'UNIT PRICE ($)' ]) // { name: 'cherries', quantity: 5 }
                 let output = {};
                 let payload = {};
                 let funds = [];
@@ -112,10 +126,10 @@ async function insert(dates) {
                 amp.percent = 0.25;
                 asb.percent = 0.25;
                 anz.percent = 0.24;
-                nikko.price = tableData[0].find(({ FUND }) => FUND === 'Nikko AM Growth Fund')['UNIT PRICE ($)'];
-                amp.price = tableData[0].find(({ FUND }) => FUND === 'AMP Aggressive Fund')['UNIT PRICE ($)'];
-                asb.price = tableData[0].find(({ FUND }) => FUND === 'ASB Growth Fund')['UNIT PRICE ($)'];
-                anz.price = tableData[0].find(({ FUND }) => FUND === 'ANZ Growth Fund')['UNIT PRICE ($)'];
+                nikko.price = tableData[1].find( FUND  => FUND['Fund name'] === 'Nikko AM Growth Fund')['Unit price($)'];
+                amp.price = tableData[1].find( FUND  => FUND['Fund name'] === 'AMP Aggressive Fund')['Unit price($)'];
+                asb.price = tableData[1].find( FUND  => FUND['Fund name'] === 'ASB Growth Fund')['Unit price($)'];
+                anz.price = tableData[1].find( FUND  => FUND['Fund name'] === 'ANZ Growth Fund')['Unit price($)'];
                 //console.log(anz.price) // { name: 'cherries', quantity: 5 }
                 funds.push(nikko);
                 funds.push(amp);
