@@ -128,7 +128,7 @@ async function insert(dates) {
                 anz.percent = 0.24;
                 nikko.price = tableData[1].find( FUND  => FUND['Fund name'] === 'Nikko AM Growth Fund')['Unit price($)'];
                 amp.price = tableData[1].find( FUND  => FUND['Fund name'] === 'AMP Aggressive Fund')['Unit price($)'];
-                asb.price = tableData[1].find( FUND  => FUND['Fund name'] === 'ASB Growth Fund')['Unit price($)'];
+                asb.price = tableData[1].find( FUND  => FUND['Fund name'] === 'Superlife Growth Fund')['Unit price($)'];
                 anz.price = tableData[1].find( FUND  => FUND['Fund name'] === 'ANZ Growth Fund')['Unit price($)'];
                 //console.log(anz.price) // { name: 'cherries', quantity: 5 }
                 funds.push(nikko);
